@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LinkedIn Scraper</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>LinkedIn Scraper</h1>
+            <div class="session-status" id="sessionStatus">
+                <span class="status-dot" id="statusDot"></span>
+                <span id="statusText">Checking...</span>
+            </div>
+        </header>
+
+        <main>
+            <div class="input-section">
+                <label for="urlInput">URLs (one per line)</label>
+                <textarea id="urlInput" placeholder="https://www.linkedin.com/in/john-doe&#10;https://www.linkedin.com/in/jane-doe"></textarea>
+                <div class="actions">
+                    <button id="scrapeBtn" class="btn primary">Scrape</button>
+                    <button id="loadSessionBtn" class="btn secondary">Load Session</button>
+                    <input type="file" id="sessionFile" accept=".json" style="display:none">
+                </div>
+            </div>
+
+            <div class="output-section">
+                <label>Results</label>
+                <pre><code id="output" class="output-block"></code></pre>
+            </div>
+        </main>
+    </div>
+
+    <script src="main.js"></script>
+</body>
+</html>

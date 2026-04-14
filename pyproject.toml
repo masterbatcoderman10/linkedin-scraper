@@ -1,0 +1,25 @@
+[project]
+name = "linkedin-scraper"
+version = "0.1.0"
+description = "LinkedIn profile scraper with stealth Firefox browser"
+requires-python = ">=3.9"
+dependencies = [
+    "camoufox>=0.4.11",
+    "playwright>=1.58.0",
+    "tenacity>=9.0",
+    "beautifulsoup4>=4.12",
+    "lxml>=5.0",
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "python-multipart>=0.0.20",
+]
+
+[project.scripts]
+linkedin-scrape = "cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["engine", "api"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
