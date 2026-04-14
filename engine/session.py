@@ -59,6 +59,10 @@ def extract_firefox_cookies(profile_path: Optional[str] = None) -> dict[str, str
 
     cookies: dict[str, str] = {}
     for name, value in rows:
+        # Firefox SQLite stores cookie values with surrounding quotes from NSS
+        # e.g. '"ajax:12345"' -> 'ajax:12345'
+        if isinstance(value, str) and len(value) >= 2 and value[0] == '"' and value[-1] == '"':
+            value = value[1:-1]
         cookies[name] = value
 
     if not cookies:

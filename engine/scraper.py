@@ -5,6 +5,7 @@ import re
 from typing import Optional
 
 from bs4 import BeautifulSoup, Tag
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 logger = logging.getLogger(__name__)
 
@@ -28,61 +29,67 @@ _HEADING_TAGS = {
 _STRIP_TAGS = {"script", "style", "nav", "footer", "noscript", "svg", "path", "img"}
 
 
+def _is_login_wall(content: str, url: str) -> bool:
+    """Detect if we're on a login/ auth wall."""
+    lower = content.lower()
+    # Check URL-based redirect
+    if "login" in url.lower():
+        return True
+    # Check content-based login signals
+    if ("sign in to view" in lower or
+        ("sign in" in lower and ("linkedin" in lower or "authenticate" in lower))):
+        return True
+    return False
+
+
 class LinkedInScraper:
     def __init__(self, cookies: dict[str, str], headless: bool = True):
         self.cookies = cookies
         self.headless = headless
 
+    def _http_headers(self) -> dict[str, str]:
+        return {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:135.0) Gecko/20100101 Firefox/135.0",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1",
+        }
+
+    def _build_cookie_header(self) -> str:
+        return "; ".join(f"{k}={v}" for k, v in self.cookies.items())
+
+    @retry(
+        retry=retry_if_exception_type((ConnectionError, TimeoutError)),
+        wait=wait_exponential(multiplier=1, min=2, max=30),
+        stop=stop_after_attempt(3),
+        reraise=True,
+    )
     def scrape(self, url: str) -> str:
-        import camoufox
+        import requests
 
-        logger.info("Launching browser (headless=%s)", self.headless)
+        headers = self._http_headers()
+        headers["Cookie"] = self._build_cookie_header()
 
-        browser = camoufox.launch(headless=self.headless)
-        try:
-            context = browser.new_context()
-            try:
-                cookie_list = [
-                    {
-                        "name": name,
-                        "value": value,
-                        "domain": ".linkedin.com",
-                        "path": "/",
-                    }
-                    for name, value in self.cookies.items()
-                ]
-                if cookie_list:
-                    context.add_cookies(cookie_list)
+        logger.info("Fetching %s (HTTP)", url)
 
-                page = context.new_page()
-                try:
-                    logger.info("Navigating to %s", url)
-                    page.goto(url, wait_until="networkidle", timeout=30000)
+        resp = requests.get(url, headers=headers, allow_redirects=True, timeout=30)
+        content = resp.text
+        final_url = resp.url
 
-                    current_url = page.url
-                    self._check_session(current_url, page)
+        # Detect redirect to login
+        if resp.status_code in (301, 302, 303, 307, 308):
+            loc = resp.headers.get("Location", "")
+            if "login" in loc.lower():
+                raise SessionExpiredError(
+                    "Session expired — redirected to login page"
+                )
 
-                    content = page.content()
-                    logger.debug("Page content length: %d chars", len(content))
-                finally:
-                    page.close()
-            finally:
-                context.close()
-        finally:
-            browser.close()
+        if resp.status_code == 999:
+            raise BlockedError("LinkedIn rate-limited or IP blocked (status 999)")
 
+        logger.info("Got %d bytes from %s", len(content), final_url)
         return self._html_to_markdown(content)
-
-    def _check_session(self, current_url: str, page) -> None:
-        if re.search(r"/login|/checkpoint", current_url, re.IGNORECASE):
-            raise SessionExpiredError(
-                "Session expired \u2014 please re-authenticate in Firefox"
-            )
-
-        title = page.title() or ""
-        lower_title = title.lower()
-        if "access restricted" in lower_title or "blocked" in lower_title:
-            raise BlockedError(f"Access blocked: {title}")
 
     def _html_to_markdown(self, html: str) -> str:
         soup = BeautifulSoup(html, "lxml")
