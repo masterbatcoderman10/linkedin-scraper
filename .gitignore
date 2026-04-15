@@ -4,3 +4,8 @@ __pycache__/
 .env
 .agent-worktrees/
 uv.lock
+output/
+*.md
+!README.md
+linkedin-session.json
+session.json
