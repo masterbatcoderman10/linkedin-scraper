@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import re
 from typing import Optional
 
 from bs4 import BeautifulSoup, Tag
@@ -29,35 +28,10 @@ _HEADING_TAGS = {
 _STRIP_TAGS = {"script", "style", "nav", "footer", "noscript", "svg", "path", "img"}
 
 
-def _is_login_wall(content: str, url: str) -> bool:
-    """Detect if we're on a login/ auth wall."""
-    lower = content.lower()
-    # Check URL-based redirect
-    if "login" in url.lower():
-        return True
-    # Check content-based login signals
-    if ("sign in to view" in lower or
-        ("sign in" in lower and ("linkedin" in lower or "authenticate" in lower))):
-        return True
-    return False
-
-
 class LinkedInScraper:
     def __init__(self, cookies: dict[str, str], headless: bool = True):
         self.cookies = cookies
         self.headless = headless
-
-    def _http_headers(self) -> dict[str, str]:
-        return {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:135.0) Gecko/20100101 Firefox/135.0",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Accept-Language": "en-US,en;q=0.9",
-            "Connection": "keep-alive",
-            "Upgrade-Insecure-Requests": "1",
-        }
-
-    def _build_cookie_header(self) -> str:
-        return "; ".join(f"{k}={v}" for k, v in self.cookies.items())
 
     @retry(
         retry=retry_if_exception_type((ConnectionError, TimeoutError)),
@@ -66,21 +40,22 @@ class LinkedInScraper:
         reraise=True,
     )
     def scrape(self, url: str) -> str:
-        import requests
+        import curl_cffi.requests as cfreq
 
-        headers = self._http_headers()
-        headers["Cookie"] = self._build_cookie_header()
+        logger.info("Fetching %s (curl_cffi Firefox impersonation)", url)
 
-        logger.info("Fetching %s (HTTP)", url)
+        session = cfreq.Session(impersonate="firefox135")
+        for name, value in self.cookies.items():
+            session.cookies.set(name, value)
 
-        resp = requests.get(url, headers=headers, allow_redirects=True, timeout=30)
+        resp = session.get(url, timeout=30)
         content = resp.text
         final_url = resp.url
 
         # Detect redirect to login
         if resp.status_code in (301, 302, 303, 307, 308):
             loc = resp.headers.get("Location", "")
-            if "login" in loc.lower():
+            if loc and "login" in loc.lower():
                 raise SessionExpiredError(
                     "Session expired — redirected to login page"
                 )

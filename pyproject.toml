@@ -2,13 +2,14 @@
 name = "linkedin-scraper"
 version = "0.1.0"
 description = "LinkedIn profile scraper with stealth Firefox browser"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     "camoufox>=0.4.11",
     "playwright>=1.58.0",
     "tenacity>=9.0",
     "beautifulsoup4>=4.12",
     "lxml>=5.0",
+    "curl_cffi>=0.15",
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.32.0",
     "python-multipart>=0.0.20",
