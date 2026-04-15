@@ -14,6 +14,7 @@ from engine import (
     BlockedError,
     extract_firefox_cookies,
     load_session_file,
+    save_session_file,
     scrape_parallel,
 )
 
@@ -142,6 +143,11 @@ def main() -> int:
         default=True,
         help="Run browser headless (default: True)",
     )
+    parser.add_argument(
+        "--export-session",
+        metavar="PATH",
+        help="Extract cookies from Firefox and save to PATH, then exit",
+    )
 
     args = parser.parse_args()
 
@@ -153,6 +159,15 @@ def main() -> int:
 
     _setup_logging(verbose)
     logger = logging.getLogger()
+
+    if args.export_session:
+        cookies = extract_firefox_cookies()
+        if not cookies:
+            print("Error: No LinkedIn cookies found in Firefox", file=sys.stderr)
+            return 2
+        save_session_file(args.export_session, cookies)
+        print(f"Exported {len(cookies)} cookies to {args.export_session}")
+        return 0
 
     output_dir = Path(args.output_dir)
 

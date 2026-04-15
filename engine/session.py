@@ -105,3 +105,29 @@ def save_session_file(path: str, cookies: dict[str, str]) -> None:
         logger.debug("Saved cookie: %s=%s", name, _mask_cookie_value(value))
 
     logger.info("Session saved to %s (%d cookies)", p, len(cookies))
+
+
+if __name__ == "__main__":
+    import argparse
+    import sys
+
+    parser = argparse.ArgumentParser(description="Export LinkedIn session from Firefox to JSON")
+    parser.add_argument(
+        "--export",
+        metavar="PATH",
+        help="Extract cookies from Firefox and save to PATH",
+    )
+    parser.add_argument(
+        "--profile",
+        metavar="PATH",
+        help="Firefox profile directory (default: auto-detect)",
+    )
+    args = parser.parse_args()
+
+    if args.export:
+        cookies = extract_firefox_cookies(args.profile)
+        save_session_file(args.export, cookies)
+        print(f"Exported {len(cookies)} cookies to {args.export}")
+    else:
+        parser.print_help()
+        sys.exit(1)
